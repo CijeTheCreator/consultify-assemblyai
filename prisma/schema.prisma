@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model TranslationCache {
+  id             String   @id @default(cuid())
+  text           String
+  sourceLanguage String
+  targetLanguage String
+  translatedText String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Composite unique constraint to prevent duplicate translations
+  @@unique([text, sourceLanguage, targetLanguage])
+  @@map("translation_cache")
+}
+
+model Consultation {
+  id               String             @id @default(cuid())
+  patientId        String             @map("patient_id")
+  doctorId         String?            @map("doctor_id")
+  title            String
+  status           ConsultationStatus @default(ACTIVE)
+  consultationType ConsultationType   @default(HUMAN) @map("consultation_type")
+  aiTriageStatus   AITriageStatus     @default(IN_PROGRESS) @map("ai_triage_status")
+  triageSummary    String?            @map("triage_summary")
+  urgency          Urgency            @default(MEDIUM)
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  messages         Message[]
+  typingIndicators TypingIndicator[]
+  prescriptions    Prescription[]
+
+  @@map("consultations")
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  consultationId String      @map("consultation_id")
+  senderId       String      @map("sender_id")
+  content        String
+  messageType    MessageType @default(USER) @map("message_type")
+  prescriptionId String?     @map("prescription_id")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  consultation Consultation         @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  prescription Prescription?        @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  reads        MessageRead[]
+  translations MessageTranslation[] // Add this line
+
+  @@map("messages")
+}
+
+model MessageRead {
+  id        String   @id @default(cuid())
+  messageId String   @map("message_id")
+  userId    String   @map("user_id")
+  readAt    DateTime @default(now()) @map("read_at")
+
+  // Relations
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@map("message_reads")
+}
+
+model TypingIndicator {
+  id             String   @id @default(cuid())
+  consultationId String   @map("consultation_id")
+  userId         String   @map("user_id")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  consultation Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  @@unique([consultationId, userId])
+  @@map("typing_indicators")
+}
+
+model Prescription {
+  id             String   @id @default(cuid())
+  consultationId String   @map("consultation_id")
+  doctorId       String   @map("doctor_id")
+  patientId      String   @map("patient_id")
+  medications    Json // Array of {drug_name, amount, frequency}
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  consultation Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  messages     Message[]
+
+  @@map("prescriptions")
+}
+
+// Enums
+enum ConsultationStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+
+  @@map("consultation_status")
+}
+
+enum ConsultationType {
+  AI_TRIAGE
+  HUMAN
+  COMPLETED
+
+  @@map("consultation_type")
+}
+
+enum AITriageStatus {
+  IN_PROGRESS
+  COMPLETED
+  TRANSFERRED
+
+  @@map("ai_triage_status")
+}
+
+enum Urgency {
+  LOW
+  MEDIUM
+  HIGH
+
+  @@map("urgency")
+}
+
+enum MessageType {
+  USER
+  SYSTEM
+  DOCTOR_INTRO
+  AI_TRIAGE
+  PRESCRIPTION
+
+  @@map("message_type")
+}
+
+model MessageTranslation {
+  id             String   @id @default(cuid())
+  messageId      String   @map("message_id")
+  originalText   String   @map("original_text")
+  translatedText String   @map("translated_text")
+  sourceLanguage String   @map("source_language")
+  targetLanguage String   @map("target_language")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, targetLanguage])
+  @@map("message_translations")
+}
