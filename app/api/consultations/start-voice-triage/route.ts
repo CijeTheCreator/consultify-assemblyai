@@ -2,7 +2,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { ConsultationType, AITriageStatus, ConsultationStatus } from "@prisma/client"
-import { RoomServiceClient, AccessToken, VideoGrant } from 'livekit-server-sdk'
+import { RoomServiceClient, AccessToken } from 'livekit-server-sdk'
 
 // Initialize LiveKit client
 const roomService = new RoomServiceClient(
@@ -73,7 +73,8 @@ export async function POST(request: NextRequest) {
      }
    )
 
-   const grant = new VideoGrant({
+   // Use addGrant method instead of VideoGrant constructor
+   accessToken.addGrant({
      roomJoin: true,
      room: roomName,
      canPublish: true,
@@ -81,8 +82,7 @@ export async function POST(request: NextRequest) {
      canPublishData: true,
    })
 
-   accessToken.addGrant(grant)
-   const token = accessToken.toJwt()
+   const token = await accessToken.toJwt()
 
    // Add initial AI message to database
    await prisma.message.create({
@@ -181,7 +181,8 @@ export async function GET(request: NextRequest) {
      }
    )
 
-   const grant = new VideoGrant({
+   // Use addGrant method instead of VideoGrant constructor
+   accessToken.addGrant({
      roomJoin: true,
      room: roomName,
      canPublish: true,
@@ -189,8 +190,7 @@ export async function GET(request: NextRequest) {
      canPublishData: true,
    })
 
-   accessToken.addGrant(grant)
-   const token = accessToken.toJwt()
+   const token = await accessToken.toJwt()
 
    return NextResponse.json({
      session: {
